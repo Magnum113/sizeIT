@@ -1,0 +1,225 @@
+name: Deploy Na Glaz to production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: naglaz-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Build exact SHA and deploy
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: naglaz-production
+
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify the exact source revision
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --short)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.13.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Test
+        run: npm test
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Validate the subpath build
+        id: assets
+        run: |
+          set -Eeuo pipefail
+          test -f dist/index.html
+          test -f dist/favicon.svg
+
+          while IFS= read -r -d '' entry; do
+            relative="${entry#dist/}"
+            if [[ -L "$entry" ]]; then
+              printf 'Symbolic link in output: %s\n' "$relative" >&2
+              exit 1
+            elif [[ -d "$entry" ]]; then
+              [[ "$relative" = 'assets' || "$relative" = 'art' ]] || {
+                printf 'Unexpected output directory: %s\n' "$relative" >&2
+                exit 1
+              }
+            elif [[ -f "$entry" ]]; then
+              [[ "$relative" = 'index.html' || "$relative" = 'favicon.svg' ||
+                "$relative" =~ ^assets/[A-Za-z0-9._-]+\.(js|css)$ ||
+                "$relative" =~ ^art/[A-Za-z0-9._-]+\.png$ ]] || {
+                printf 'Unexpected output file: %s\n' "$relative" >&2
+                exit 1
+              }
+            else
+              printf 'Link or special output entry: %s\n' "$relative" >&2
+              exit 1
+            fi
+          done < <(find dist -mindepth 1 -print0)
+
+          (( $(find dist/art -maxdepth 1 -type f -name '*.png' 2>/dev/null | wc -l) <= 64 ))
+
+          mapfile -t javascript_files < <(find dist/assets -maxdepth 1 -type f -name '*.js' -printf '%f\n')
+          mapfile -t stylesheet_files < <(find dist/assets -maxdepth 1 -type f -name '*.css' -printf '%f\n')
+          (( ${#javascript_files[@]} == 1 ))
+          (( ${#stylesheet_files[@]} == 1 ))
+
+          javascript_file="${javascript_files[0]}"
+          stylesheet_file="${stylesheet_files[0]}"
+          grep -Fq "/naglaz/assets/$javascript_file" dist/index.html
+          grep -Fq "/naglaz/assets/$stylesheet_file" dist/index.html
+          grep -Fq '/naglaz/favicon.svg' dist/index.html
+          ! grep -Eq '(src|href)="/(assets/|favicon\.svg)' dist/index.html
+
+          printf 'javascript_file=%s\n' "$javascript_file" >> "$GITHUB_OUTPUT"
+          printf 'stylesheet_file=%s\n' "$stylesheet_file" >> "$GITHUB_OUTPUT"
+          printf 'index_digest=%s\n' "$(sha256sum dist/index.html | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          printf 'favicon_digest=%s\n' "$(sha256sum dist/favicon.svg | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          printf 'javascript_digest=%s\n' "$(sha256sum "dist/assets/$javascript_file" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          printf 'stylesheet_digest=%s\n' "$(sha256sum "dist/assets/$stylesheet_file" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Package an immutable release
+        id: package
+        run: |
+          set -Eeuo pipefail
+          package_root="$RUNNER_TEMP/package"
+          install -d "$package_root/naglaz"
+          cp -a dist/. "$package_root/naglaz/"
+          printf '%s\n' "$GITHUB_SHA" > "$package_root/REVISION"
+
+          archive="$RUNNER_TEMP/$GITHUB_SHA.tar.gz"
+          source_date_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          tar \
+            --create \
+            --directory "$package_root" \
+            --sort=name \
+            --mtime="@$source_date_epoch" \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            REVISION naglaz | gzip -n > "$archive"
+
+          digest="$(sha256sum "$archive" | awk '{print $1}')"
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Upload and activate the release
+        env:
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          ARCHIVE_DIGEST: ${{ steps.package.outputs.digest }}
+          DEPLOY_HOST: ${{ secrets.NAGLAZ_VPS_HOST }}
+          DEPLOY_PRIVATE_KEY_B64: ${{ secrets.NAGLAZ_VPS_SSH_KEY_B64 }}
+          DEPLOY_KNOWN_HOSTS_B64: ${{ secrets.NAGLAZ_VPS_KNOWN_HOSTS_B64 }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$ARCHIVE_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          test -n "$DEPLOY_PRIVATE_KEY_B64"
+          test -n "$DEPLOY_KNOWN_HOSTS_B64"
+          test -f "$ARCHIVE"
+
+          key_file="$RUNNER_TEMP/naglaz_deploy_key"
+          known_hosts_file="$RUNNER_TEMP/naglaz_known_hosts"
+          cleanup_ssh() { rm -f -- "$key_file" "$known_hosts_file"; }
+          trap cleanup_ssh EXIT
+          (umask 077 && printf '%s' "$DEPLOY_PRIVATE_KEY_B64" | base64 --decode > "$key_file")
+          (umask 077 && printf '%s' "$DEPLOY_KNOWN_HOSTS_B64" | base64 --decode > "$known_hosts_file")
+          ssh-keygen -y -f "$key_file" >/dev/null
+          ssh-keygen -F "$DEPLOY_HOST" -f "$known_hosts_file" >/dev/null
+
+          ssh_options=(
+            -T
+            -F /dev/null
+            -p 22
+            -i "$key_file"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o PasswordAuthentication=no
+            -o KbdInteractiveAuthentication=no
+            -o StrictHostKeyChecking=yes
+            -o GlobalKnownHostsFile=/dev/null
+            -o "UserKnownHostsFile=$known_hosts_file"
+            -o ClearAllForwardings=yes
+            -o ConnectTimeout=15
+            -o ServerAliveInterval=10
+            -o ServerAliveCountMax=3
+          )
+          destination="naglaz-deploy@$DEPLOY_HOST"
+
+          ssh "${ssh_options[@]}" "$destination" \
+            "upload $GITHUB_SHA $ARCHIVE_DIGEST" < "$ARCHIVE"
+          ssh "${ssh_options[@]}" "$destination" \
+            "deploy $GITHUB_SHA $ARCHIVE_DIGEST"
+          ssh "${ssh_options[@]}" "$destination" \
+            "status $GITHUB_SHA $ARCHIVE_DIGEST"
+
+      - name: Verify production
+        env:
+          FAVICON_DIGEST: ${{ steps.assets.outputs.favicon_digest }}
+          INDEX_DIGEST: ${{ steps.assets.outputs.index_digest }}
+          JAVASCRIPT_DIGEST: ${{ steps.assets.outputs.javascript_digest }}
+          JAVASCRIPT_FILE: ${{ steps.assets.outputs.javascript_file }}
+          STYLESHEET_DIGEST: ${{ steps.assets.outputs.stylesheet_digest }}
+          STYLESHEET_FILE: ${{ steps.assets.outputs.stylesheet_file }}
+        run: |
+          set -Eeuo pipefail
+          index_file="$RUNNER_TEMP/naglaz-index.html"
+          index_headers="$RUNNER_TEMP/naglaz-index.headers"
+          favicon_file="$RUNNER_TEMP/naglaz-favicon.svg"
+          javascript_file="$RUNNER_TEMP/naglaz-app.js"
+          stylesheet_file="$RUNNER_TEMP/naglaz-app.css"
+
+          curl --fail --silent --show-error --max-time 20 \
+            --dump-header "$index_headers" \
+            https://kadimag.ru/naglaz/ --output "$index_file"
+          test "$(sha256sum "$index_file" | awk '{print $1}')" = "$INDEX_DIGEST"
+          tr -d '\r' < "$index_headers" | \
+            grep -Eiq "^content-security-policy:.*sandbox allow-scripts.*connect-src 'none'"
+
+          curl --fail --silent --show-error --max-time 20 \
+            https://kadimag.ru/naglaz/favicon.svg --output "$favicon_file"
+          test "$(sha256sum "$favicon_file" | awk '{print $1}')" = "$FAVICON_DIGEST"
+
+          curl --fail --silent --show-error --max-time 20 \
+            "https://kadimag.ru/naglaz/assets/$JAVASCRIPT_FILE" \
+            --output "$javascript_file"
+          test "$(sha256sum "$javascript_file" | awk '{print $1}')" = "$JAVASCRIPT_DIGEST"
+
+          curl --fail --silent --show-error --max-time 20 \
+            "https://kadimag.ru/naglaz/assets/$STYLESHEET_FILE" \
+            --output "$stylesheet_file"
+          test "$(sha256sum "$stylesheet_file" | awk '{print $1}')" = "$STYLESHEET_DIGEST"
+
+          root_result="$(curl --silent --show-error --max-time 20 \
+            --output /dev/null --write-out '%{http_code}|%{redirect_url}' \
+            https://kadimag.ru/naglaz)"
+          test "$root_result" = '308|https://kadimag.ru/naglaz/'
+
+          boundary_status="$(curl --silent --show-error --max-time 20 \
+            --output /dev/null --write-out '%{http_code}' \
+            https://kadimag.ru/naglaz-private-probe)"
+          test "$boundary_status" = 307
