@@ -124,7 +124,6 @@ export default function App() {
   const finishReveal = useCallback(() => setRevealReady(true), []);
   const [best, setBest] = useState(readBest);
   const [oldBest, setOldBest] = useState(0);
-  const [storageFailed, setStorageFailed] = useState(false);
   const [help, setHelp] = useState(false);
   const [touched, setTouched] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -147,7 +146,6 @@ export default function App() {
     setRevealReady(false);
     locked.current = false;
     setOldBest(best);
-    setStorageFailed(false);
     setTouched(false);
     setScreen("game");
     window.scrollTo({ top: 0 });
@@ -178,7 +176,7 @@ export default function App() {
     if (index === ROUND_COUNT - 1) {
       const newBest = Math.max(best, total);
       setBest(newBest);
-      setStorageFailed(!saveBest(newBest));
+      saveBest(newBest);
       setScreen("summary");
       window.scrollTo({ top: 0 });
     } else {
@@ -440,11 +438,6 @@ export default function App() {
                 );
               })}
             </div>
-            {storageFailed && (
-              <p className="error">
-                Не удалось сохранить рекорд на этом устройстве
-              </p>
-            )}
             <button className="primary" onClick={start}>
               Играть ещё <Arrow />
             </button>
