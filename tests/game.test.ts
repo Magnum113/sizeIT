@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   score,
+  meters,
   errorLabel,
   clamp,
   shuffle,
@@ -11,6 +12,11 @@ import {
 } from "../src/game";
 import { objects, pairs, chooseRounds } from "../src/data";
 describe("scoring", () => {
+  it("preserves meaningful centimetres for small objects", () => {
+    expect(meters(3.05)).toBe("3,05 м");
+    expect(meters(8.38)).toBe("8,38 м");
+    expect(meters(146.6)).toBe("146,6 м");
+  });
   it("gives exact and tolerant hits full marks", () => {
     expect(score(100, 100)).toBe(100);
     expect(score(101.9, 100)).toBe(100);
@@ -38,8 +44,9 @@ describe("scoring", () => {
   });
 });
 describe("catalogue", () => {
-  it("has eight objects and unique pairs with reachable answers", () => {
-    expect(Object.keys(objects)).toHaveLength(8);
+  it("has fourteen objects and twenty-two reachable pairs", () => {
+    expect(Object.keys(objects)).toHaveLength(14);
+    expect(pairs).toHaveLength(22);
     expect(new Set(pairs.map((p) => p.id)).size).toBe(pairs.length);
     for (const p of pairs) {
       const r = objects[p.reference],

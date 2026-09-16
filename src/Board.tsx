@@ -252,7 +252,7 @@ export default function Board({
         )}
         <path
           className="reference-guide"
-          d={`M${referenceX + reference.width * k + 12} ${baseY - reference.height * k}V${baseY}`}
+          d={`M${referenceX + reference.width * k + 12} ${baseY - (horizontal ? reference.height : reference.size) * k}V${baseY}`}
           stroke="#61d7c1"
           strokeOpacity=".45"
           strokeDasharray="3 5"
@@ -283,7 +283,7 @@ export default function Board({
               d={
                 horizontal
                   ? `M${placedX(correct)} ${baseY - target.height * correct - 6}v-6h${target.width * correct}v6`
-                  : `M${placedX(correct) - 6} ${baseY - target.height * correct}h-6V${baseY}h6`
+                  : `M${placedX(correct) - 6} ${baseY - target.size * correct}h-6V${baseY}h6`
               }
               fill="none"
               stroke="#c4d0dc"
@@ -295,7 +295,7 @@ export default function Board({
               d={
                 horizontal
                   ? `M${px} ${baseY + 4}v6h${target.width * s}v-6`
-                  : `M${Math.max(px + s * target.width, placedX(correct) + correct * target.width) + 6} ${py}h6V${py + target.height * s}h-6`
+                  : `M${Math.max(px + s * target.width, placedX(correct) + correct * target.width) + 6} ${py + (target.height - target.size) * s}h6V${py + target.height * s}h-6`
               }
               fill="none"
               stroke="#bea5f7"

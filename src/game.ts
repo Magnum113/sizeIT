@@ -21,7 +21,7 @@ export function errorLabel(guess: number, actual: number) {
   return `На ${Math.abs(error).toLocaleString("ru-RU", { maximumFractionDigits: 1 })}% ${error > 0 ? "больше" : "меньше"}`;
 }
 export function meters(n: number) {
-  return `${n.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} м`;
+  return `${n.toLocaleString("ru-RU", { maximumFractionDigits: n < 10 ? 2 : 1 })} м`;
 }
 export function shuffle<T>(items: readonly T[], random = Math.random) {
   const copy = [...items];

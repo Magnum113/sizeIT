@@ -1,4 +1,5 @@
 import { shuffle } from "./game";
+import { artwork } from "./artwork";
 export type ObjectId =
   | "eiffel"
   | "pyramid"
@@ -7,7 +8,13 @@ export type ObjectId =
   | "rocket"
   | "airbus"
   | "titanic"
-  | "pitch";
+  | "pitch"
+  | "whale"
+  | "trex"
+  | "bus"
+  | "giraffe"
+  | "elephant"
+  | "hoop";
 export type GameObject = {
   id: ObjectId;
   name: string;
@@ -18,6 +25,12 @@ export type GameObject = {
   axis: "x" | "y";
   note: string;
   source: string;
+  illustration?: {
+    src: string;
+    imageWidth: number;
+    imageHeight: number;
+    crop: [number, number, number, number];
+  };
 };
 export const objects: Record<ObjectId, GameObject> = {
   eiffel: {
@@ -113,6 +126,67 @@ export const objects: Record<ObjectId, GameObject> = {
     source:
       "https://publications.fifa.com/es/football-stadiums-guidelines/technical-guideline/stadium-guidelines/pitch-dimensions-and-surrounding-areas/",
   },
+  whale: {
+    id: "whale",
+    name: "Синий кит",
+    label: "Крупный взрослый · от головы до хвоста",
+    size: 30,
+    ...artwork.whale,
+    axis: "x",
+    note: "Здесь сравниваем крупного синего кита длиной 30 м. Размеры зависят от популяции: антарктические киты могут быть ещё длиннее.",
+    source: "https://www.fisheries.noaa.gov/species/blue-whale",
+  },
+  trex: {
+    id: "trex",
+    name: "Тираннозавр",
+    label: "Взрослый · от носа до кончика хвоста",
+    size: 12,
+    ...artwork.trex,
+    axis: "x",
+    note: "Взрослый тираннозавр — около 12 м от носа до кончика хвоста. Это оценка по ископаемым остаткам, а не размер каждого динозавра.",
+    source: "https://www.nhm.ac.uk/discover/dino-directory/tyrannosaurus.html",
+  },
+  bus: {
+    id: "bus",
+    name: "Лондонский автобус",
+    label: "Классический Routemaster RM · длина",
+    size: 8.38,
+    ...artwork.bus,
+    axis: "x",
+    note: "Короткий классический Routemaster RM имеет длину 27 футов 6 дюймов — примерно 8,38 м. Более длинный RML здесь не используется.",
+    source: "https://routemaster.org.uk/pages/history-51-RMF",
+  },
+  giraffe: {
+    id: "giraffe",
+    name: "Жираф",
+    label: "Взрослый самец · до верхушки рожек",
+    size: 5,
+    ...artwork.giraffe,
+    axis: "y",
+    note: "Для сравнения взят взрослый самец высотой 5 м. Это пример: самцы жирафов могут достигать примерно 5,5 м.",
+    source: "https://animals.sandiegozoo.org/animals/giraffe",
+  },
+  elephant: {
+    id: "elephant",
+    name: "Африканский слон",
+    label: "Взрослый самец · высота в плечах",
+    size: 3.2,
+    ...artwork.elephant,
+    axis: "y",
+    note: "Сравниваем самца высотой 3,2 м в плечах. Это верхняя граница среднего диапазона 3–3,2 м, приведённого зоопарком Сан-Диего.",
+    source: "https://animals.sandiegozoo.org/animals/elephant",
+  },
+  hoop: {
+    id: "hoop",
+    name: "Баскетбольное кольцо",
+    label: "От пола до верхнего края кольца",
+    size: 3.05,
+    ...artwork.hoop,
+    axis: "y",
+    note: "Верхний край баскетбольного кольца находится на высоте 3,05 м. Сравниваем именно кольцо: щит и опора выше него.",
+    source:
+      "https://assets.fiba.basketball/image/upload/documents-corporate-fiba-official-rules-2024-official-basketball-rules-and-basketball-equipment.pdf",
+  },
 };
 export type Pair = {
   id: string;
@@ -192,6 +266,66 @@ export const pairs: Pair[] = [
     reference: "pitch",
     target: "airbus",
     title: "Самолёт на футбольном поле",
+  },
+  {
+    id: "plane-whale",
+    reference: "airbus",
+    target: "whale",
+    title: "Кит рядом с авиалайнером",
+  },
+  {
+    id: "whale-trex",
+    reference: "whale",
+    target: "trex",
+    title: "Хищник рядом с китом",
+  },
+  {
+    id: "whale-bus",
+    reference: "whale",
+    target: "bus",
+    title: "Сколько автобусов в одном ките?",
+  },
+  {
+    id: "bus-trex",
+    reference: "bus",
+    target: "trex",
+    title: "Тираннозавр на автобусной остановке",
+  },
+  {
+    id: "pitch-whale",
+    reference: "pitch",
+    target: "whale",
+    title: "Кит на футбольном поле",
+  },
+  {
+    id: "giraffe-elephant",
+    reference: "giraffe",
+    target: "elephant",
+    title: "Слон рядом с жирафом",
+  },
+  {
+    id: "elephant-giraffe",
+    reference: "elephant",
+    target: "giraffe",
+    title: "Кто выше в саванне?",
+  },
+  {
+    id: "giraffe-hoop",
+    reference: "giraffe",
+    target: "hoop",
+    title: "Жираф на баскетбольной площадке",
+  },
+  {
+    id: "elephant-hoop",
+    reference: "elephant",
+    target: "hoop",
+    title: "Слон и баскетбольное кольцо",
+  },
+  {
+    id: "hoop-elephant",
+    reference: "hoop",
+    target: "elephant",
+    title: "Слон под кольцом",
   },
 ];
 

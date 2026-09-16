@@ -462,7 +462,7 @@ export default function App() {
       </main>
       <footer>
         <span>На глаз</span>
-        <span>Восемь предметов. Один глазомер.</span>
+        <span>Разные предметы. Один глазомер.</span>
         <span className="footer-detail">Размеры — из открытых источников</span>
       </footer>
       <dialog
