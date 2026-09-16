@@ -195,22 +195,23 @@ jobs:
 
           curl --fail --silent --show-error --max-time 20 \
             --dump-header "$index_headers" \
-            https://kadimag.ru/naglaz/ --output "$index_file"
+            https://www.kadimag.ru/naglaz/ --output "$index_file"
           test "$(sha256sum "$index_file" | awk '{print $1}')" = "$INDEX_DIGEST"
           tr -d '\r' < "$index_headers" | \
-            grep -Eiq "^content-security-policy:.*sandbox allow-scripts.*connect-src 'none'"
+            grep -Eiq "^content-security-policy:.*default-src 'none'.*connect-src 'none'"
+          ! tr -d '\r' < "$index_headers" | grep -Eiq '^content-security-policy:.*sandbox'
 
           curl --fail --silent --show-error --max-time 20 \
-            https://kadimag.ru/naglaz/favicon.svg --output "$favicon_file"
+            https://www.kadimag.ru/naglaz/favicon.svg --output "$favicon_file"
           test "$(sha256sum "$favicon_file" | awk '{print $1}')" = "$FAVICON_DIGEST"
 
           curl --fail --silent --show-error --max-time 20 \
-            "https://kadimag.ru/naglaz/assets/$JAVASCRIPT_FILE" \
+            "https://www.kadimag.ru/naglaz/assets/$JAVASCRIPT_FILE" \
             --output "$javascript_file"
           test "$(sha256sum "$javascript_file" | awk '{print $1}')" = "$JAVASCRIPT_DIGEST"
 
           curl --fail --silent --show-error --max-time 20 \
-            "https://kadimag.ru/naglaz/assets/$STYLESHEET_FILE" \
+            "https://www.kadimag.ru/naglaz/assets/$STYLESHEET_FILE" \
             --output "$stylesheet_file"
           test "$(sha256sum "$stylesheet_file" | awk '{print $1}')" = "$STYLESHEET_DIGEST"
 
@@ -220,7 +221,7 @@ jobs:
             artwork_headers="$RUNNER_TEMP/naglaz-artwork.headers"
             curl --fail --silent --show-error --max-time 20 \
               --header 'Origin: null' --dump-header "$artwork_headers" \
-              "https://kadimag.ru/naglaz/art/$(basename "$artwork")" \
+              "https://www.kadimag.ru/naglaz/art/$(basename "$artwork")" \
               --output "$artwork_file"
             cmp "$artwork" "$artwork_file"
             tr -d '\r' < "$artwork_headers" | grep -Eiq '^content-type: image/png'
@@ -230,8 +231,13 @@ jobs:
 
           root_result="$(curl --silent --show-error --max-time 20 \
             --output /dev/null --write-out '%{http_code}|%{redirect_url}' \
-            https://kadimag.ru/naglaz)"
-          test "$root_result" = '308|https://kadimag.ru/naglaz/'
+            https://www.kadimag.ru/naglaz)"
+          test "$root_result" = '308|https://www.kadimag.ru/naglaz/'
+
+          canonical_result="$(curl --silent --show-error --max-time 20 \
+            --output /dev/null --write-out '%{http_code}|%{redirect_url}' \
+            https://kadimag.ru/naglaz/)"
+          test "$canonical_result" = '308|https://www.kadimag.ru/naglaz/'
 
           boundary_status="$(curl --silent --show-error --max-time 20 \
             --output /dev/null --write-out '%{http_code}' \

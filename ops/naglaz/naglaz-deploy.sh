@@ -430,6 +430,7 @@ health_check() {
   local javascript_file
   local stylesheet_file
   local root_result
+  local canonical_result
   local boundary_status
   local -a curl_options
 
@@ -443,11 +444,12 @@ health_check() {
     --show-error
     --connect-timeout 3
     --max-time 10
+    --resolve 'www.kadimag.ru:443:127.0.0.1'
     --resolve 'kadimag.ru:443:127.0.0.1'
   )
 
   for attempt in {1..15}; do
-    if curl "${curl_options[@]}" --fail https://kadimag.ru/naglaz/ --output "$index_file" &&
+    if curl "${curl_options[@]}" --fail https://www.kadimag.ru/naglaz/ --output "$index_file" &&
       cmp --silent "$release_dir/naglaz/index.html" "$index_file"; then
       healthy=1
       break
@@ -457,15 +459,18 @@ health_check() {
   (( healthy == 1 )) || return 1
 
   curl "${curl_options[@]}" --fail \
-    "https://kadimag.ru/naglaz/assets/$javascript_file" --output "$index_file" || return 1
+    "https://www.kadimag.ru/naglaz/assets/$javascript_file" --output "$index_file" || return 1
   cmp --silent "$release_dir/naglaz/assets/$javascript_file" "$index_file" || return 1
   curl "${curl_options[@]}" --fail \
-    "https://kadimag.ru/naglaz/assets/$stylesheet_file" --output "$index_file" || return 1
+    "https://www.kadimag.ru/naglaz/assets/$stylesheet_file" --output "$index_file" || return 1
   cmp --silent "$release_dir/naglaz/assets/$stylesheet_file" "$index_file" || return 1
 
   root_result="$(curl "${curl_options[@]}" --output /dev/null \
-    --write-out '%{http_code}|%{redirect_url}' https://kadimag.ru/naglaz)" || return 1
-  [[ "$root_result" = '308|https://kadimag.ru/naglaz/' ]] || return 1
+    --write-out '%{http_code}|%{redirect_url}' https://www.kadimag.ru/naglaz)" || return 1
+  [[ "$root_result" = '308|https://www.kadimag.ru/naglaz/' ]] || return 1
+  canonical_result="$(curl "${curl_options[@]}" --output /dev/null \
+    --write-out '%{http_code}|%{redirect_url}' https://kadimag.ru/naglaz/)" || return 1
+  [[ "$canonical_result" = '308|https://www.kadimag.ru/naglaz/' ]] || return 1
   boundary_status="$(curl "${curl_options[@]}" --output /dev/null \
     --write-out '%{http_code}' https://kadimag.ru/naglaz-private-probe)" || return 1
   [[ "$boundary_status" = 307 ]] || return 1

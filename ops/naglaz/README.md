@@ -19,12 +19,15 @@ in `Magnum113/sizeIT`:
 - `NAGLAZ_VPS_SSH_KEY_B64`
 - `NAGLAZ_VPS_KNOWN_HOSTS_B64`
 
-The active Nginx configuration must serve `/naglaz/` from `/srv/naglaz/current` before Kadimag's generic Next.js proxy.
+The active Nginx configuration serves the game at
+`https://www.kadimag.ru/naglaz/` from `/srv/naglaz/current`. The public
+`https://kadimag.ru/naglaz/` address redirects there. The `www` origin is
+deliberately separate from the private Kadimag app, so the game can use
+`localStorage` for the record without seeing the private app's browser storage.
 
 The HTTPS server must also contain the location in `artwork.nginx.conf`.
-The game's CSP sandbox creates an opaque browser origin. PNG artwork therefore
-needs `Access-Control-Allow-Origin: *` and `Cross-Origin-Resource-Policy: cross-origin`;
-SVG images request it with `crossOrigin="anonymous"` so filters and masks can use
-the pixels. Apply these headers only to the public `/naglaz/art/` directory.
-Keep the HTML sandbox and the private application's headers unchanged.
+SVG images request PNG artwork with `crossOrigin="anonymous"`, so the public
+art directory sends CORS/CORP headers. Keep these headers scoped to
+`/naglaz/art/`. The game uses a restrictive CSP without the `sandbox` directive;
+origin isolation comes from `www`, while browser storage remains available.
 The deployment workflow verifies the content and headers of every artwork file.
