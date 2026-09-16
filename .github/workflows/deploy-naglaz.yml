@@ -91,6 +91,9 @@ jobs:
           grep -Fq "/naglaz/assets/$javascript_file" dist/index.html
           grep -Fq "/naglaz/assets/$stylesheet_file" dist/index.html
           grep -Fq '/naglaz/favicon.svg' dist/index.html
+          grep -Fq 'https://mc.yandex.ru/watch/112711950' dist/index.html
+          grep -Fq 'https://mc.yandex.ru/metrika/tag.js?id=112711950' "dist/assets/$javascript_file"
+          grep -Fq 'naglaz_game_complete' "dist/assets/$javascript_file"
           ! grep -Eq '(src|href)="/(assets/|favicon\.svg)' dist/index.html
 
           printf 'javascript_file=%s\n' "$javascript_file" >> "$GITHUB_OUTPUT"
@@ -198,7 +201,7 @@ jobs:
             https://www.kadimag.ru/naglaz/ --output "$index_file"
           test "$(sha256sum "$index_file" | awk '{print $1}')" = "$INDEX_DIGEST"
           tr -d '\r' < "$index_headers" | \
-            grep -Eiq "^content-security-policy:.*default-src 'none'.*connect-src 'none'"
+            grep -Eiq "^content-security-policy:.*script-src.*mc\.yandex\.ru.*connect-src.*mc\.yandex\.ru"
           ! tr -d '\r' < "$index_headers" | grep -Eiq '^content-security-policy:.*sandbox'
 
           curl --fail --silent --show-error --max-time 20 \

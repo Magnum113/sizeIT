@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Board from "./Board";
 import Silhouette from "./Silhouette";
+import { METRIKA_GOALS, reachGoal } from "./analytics";
 import { objects, chooseRounds } from "./data";
 import type { Pair } from "./data";
 import {
@@ -137,7 +138,19 @@ export default function App() {
   useEffect(() => {
     if (screen !== "start") heading.current?.focus();
   }, [screen, index]);
-  function start() {
+  function openHelp() {
+    reachGoal(METRIKA_GOALS.rulesOpen, { screen });
+    setHelp(true);
+  }
+  function start(source: "initial" | "restart") {
+    if (source === "restart") {
+      reachGoal(METRIKA_GOALS.gameRestart, { previous_score: total });
+    }
+    reachGoal(METRIKA_GOALS.gameStart, {
+      source,
+      round_count: ROUND_COUNT,
+      previous_best: best,
+    });
     setRounds(chooseRounds());
     setIndex(0);
     setResults([]);
@@ -161,20 +174,38 @@ export default function App() {
     locked.current = true;
     const pair = rounds[index];
     const guess = objects[pair.reference].size * ratio;
+    const target = objects[pair.target];
+    const points = score(guess, target.size);
     setResults((prev) => [
       ...prev,
       {
         pairId: pair.id,
         guess,
-        points: score(guess, objects[pair.target].size),
+        points,
       },
     ]);
+    const roundParams = {
+      round_number: index + 1,
+      pair_id: pair.id,
+      measurement: target.axis === "x" ? "length" : "height",
+      points,
+      guess_meters: Math.round(guess * 100) / 100,
+      actual_meters: target.size,
+    };
+    reachGoal(METRIKA_GOALS.roundComplete, roundParams);
+    if (points === 100) reachGoal(METRIKA_GOALS.perfectRound, roundParams);
     setRevealed(true);
   }
   function next() {
     if (!revealReady) return;
     if (index === ROUND_COUNT - 1) {
       const newBest = Math.max(best, total);
+      reachGoal(METRIKA_GOALS.gameComplete, {
+        score: total,
+        previous_best: oldBest,
+        new_record: total > oldBest,
+        round_count: ROUND_COUNT,
+      });
       setBest(newBest);
       saveBest(newBest);
       setScreen("summary");
@@ -200,7 +231,7 @@ export default function App() {
             На глаз<span className="brand-dot">.</span>
           </span>
         </div>
-        <button className="help-button" onClick={() => setHelp(true)}>
+        <button className="help-button" onClick={openHelp}>
           <span className="question">?</span> Правила
         </button>
       </header>
@@ -245,7 +276,7 @@ export default function App() {
                 </li>
               </ol>
               <div className="start-action">
-                <button className="primary" onClick={start}>
+                <button className="primary" onClick={() => start("initial")}>
                   Начать игру <Arrow />
                 </button>
                 <p>
@@ -438,7 +469,7 @@ export default function App() {
                 );
               })}
             </div>
-            <button className="primary" onClick={start}>
+            <button className="primary" onClick={() => start("restart")}>
               Играть ещё <Arrow />
             </button>
             <button
