@@ -1,0 +1,9 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { writeFileSync } from 'node:fs';
+import Silhouette from '../src/Silhouette';
+import { objects } from '../src/data';
+
+const filename = process.argv[2] || 'artwork-review';
+const markup=renderToStaticMarkup(<main><header><h1>Проверка иллюстраций</h1><p>Каждый рисунок показан с сохранением пропорций. Размеры на карточках — границы рисунка, а не единый масштаб между объектами.</p></header><section>{Object.values(objects).map(o=><article key={o.id}><div className="drawing"><svg viewBox={`-2 -2 ${o.width+4} ${o.height+4}`} role="img" aria-label={o.name}><Silhouette object={o}/></svg></div><h2>{o.name}</h2><p>{o.width} × {o.height}</p></article>)}</section></main>);
+writeFileSync(`artifacts/${filename}.html`,`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Проверка иллюстраций</title><style>*{box-sizing:border-box}body{background:#151719;color:#f2f3ef;font:14px system-ui;margin:0;padding:28px}main{max-width:1280px;margin:auto}h1{font-size:26px}header p{color:#adb7bd}section{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:25px}article{background:#1d2125;border:1px solid #394148;border-radius:12px;padding:18px}h2{font-size:15px;margin:16px 0 5px}article p{font-size:12px;color:#adb7bd;margin:0}.drawing{height:250px;display:flex;justify-content:center;align-items:center;background-image:linear-gradient(#2a3035 1px,transparent 1px),linear-gradient(90deg,#2a3035 1px,transparent 1px);background-size:25px 25px}svg{height:100%;width:100%;color:#61d7c1}@media(max-width:700px){section{grid-template-columns:repeat(2,1fr)}}</style>${markup}</html>`);
