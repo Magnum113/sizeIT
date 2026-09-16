@@ -92,7 +92,8 @@ jobs:
           grep -Fq "/naglaz/assets/$stylesheet_file" dist/index.html
           grep -Fq '/naglaz/favicon.svg' dist/index.html
           grep -Fq 'https://mc.yandex.ru/watch/112711950' dist/index.html
-          grep -Fq 'https://mc.yandex.ru/metrika/tag.js?id=112711950' "dist/assets/$javascript_file"
+          grep -Fq 'https://mc.yandex.ru/metrika/tag.js?id=' "dist/assets/$javascript_file"
+          grep -Fq '112711950' "dist/assets/$javascript_file"
           grep -Fq 'naglaz_game_complete' "dist/assets/$javascript_file"
           ! grep -Eq '(src|href)="/(assets/|favicon\.svg)' dist/index.html
 

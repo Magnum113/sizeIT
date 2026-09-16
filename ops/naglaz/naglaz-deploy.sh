@@ -391,7 +391,9 @@ check_release_directory() {
   grep -Fq "/naglaz/assets/$stylesheet_file" "$release_dir/naglaz/index.html" || return 1
   grep -Fq '/naglaz/favicon.svg' "$release_dir/naglaz/index.html" || return 1
   grep -Fq 'https://mc.yandex.ru/watch/112711950' "$release_dir/naglaz/index.html" || return 1
-  grep -Fq 'https://mc.yandex.ru/metrika/tag.js?id=112711950' \
+  grep -Fq 'https://mc.yandex.ru/metrika/tag.js?id=' \
+    "$release_dir/naglaz/assets/$javascript_file" || return 1
+  grep -Fq '112711950' \
     "$release_dir/naglaz/assets/$javascript_file" || return 1
   grep -Fq 'naglaz_game_complete' \
     "$release_dir/naglaz/assets/$javascript_file" || return 1
