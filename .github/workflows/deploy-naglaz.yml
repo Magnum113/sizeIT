@@ -214,6 +214,20 @@ jobs:
             --output "$stylesheet_file"
           test "$(sha256sum "$stylesheet_file" | awk '{print $1}')" = "$STYLESHEET_DIGEST"
 
+          # HTTP 200 alone misses CORP/CORS failures inside the CSP sandbox.
+          for artwork in dist/art/*.png; do
+            artwork_file="$RUNNER_TEMP/naglaz-artwork.png"
+            artwork_headers="$RUNNER_TEMP/naglaz-artwork.headers"
+            curl --fail --silent --show-error --max-time 20 \
+              --header 'Origin: null' --dump-header "$artwork_headers" \
+              "https://kadimag.ru/naglaz/art/$(basename "$artwork")" \
+              --output "$artwork_file"
+            cmp "$artwork" "$artwork_file"
+            tr -d '\r' < "$artwork_headers" | grep -Eiq '^content-type: image/png'
+            tr -d '\r' < "$artwork_headers" | grep -Eiq '^access-control-allow-origin: \*$'
+            tr -d '\r' < "$artwork_headers" | grep -Eiq '^cross-origin-resource-policy: cross-origin$'
+          done
+
           root_result="$(curl --silent --show-error --max-time 20 \
             --output /dev/null --write-out '%{http_code}|%{redirect_url}' \
             https://kadimag.ru/naglaz)"

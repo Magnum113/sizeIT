@@ -30,6 +30,7 @@ export default function RasterSilhouette({ object }: { object: GameObject }) {
           style={{ maskType: "luminance" }}
         >
           <image
+            crossOrigin="anonymous"
             href={`${import.meta.env?.BASE_URL ?? "/"}${art.src}`}
             x={-left * unit}
             y={-top * unit}

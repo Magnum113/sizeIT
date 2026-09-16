@@ -20,3 +20,11 @@ in `Magnum113/sizeIT`:
 - `NAGLAZ_VPS_KNOWN_HOSTS_B64`
 
 The active Nginx configuration must serve `/naglaz/` from `/srv/naglaz/current` before Kadimag's generic Next.js proxy.
+
+The HTTPS server must also contain the location in `artwork.nginx.conf`.
+The game's CSP sandbox creates an opaque browser origin. PNG artwork therefore
+needs `Access-Control-Allow-Origin: *` and `Cross-Origin-Resource-Policy: cross-origin`;
+SVG images request it with `crossOrigin="anonymous"` so filters and masks can use
+the pixels. Apply these headers only to the public `/naglaz/art/` directory.
+Keep the HTML sandbox and the private application's headers unchanged.
+The deployment workflow verifies the content and headers of every artwork file.
