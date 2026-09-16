@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import type { GameObject } from "./data";
 import Silhouette from "./Silhouette";
+import { resultLayout } from "./resultLayout";
 import { clamp, MAX_RATIO, meters, score, errorLabel } from "./game";
 
 function labelLines(name: string) {
@@ -80,15 +81,8 @@ export default function Board({
     lane / (target.width * largestTargetScale),
   );
   const actual = target.size / reference.size;
-  const answerExtent = Math.max(ratio / actual, 1);
-  // Fit both the guess and answer, keeping clear space for the result at top left.
-  const resultK = Math.min(
-    155 / reference.height,
-    lane / reference.width,
-    260 / (target.height * answerExtent),
-    lane / (target.width * answerExtent),
-  );
-  const k = initialK + (resultK - initialK) * progress;
+  const result = resultLayout(reference, target, ratio, W);
+  const k = initialK + (result.scale - initialK) * progress;
   const targetScale = (r: number) => ((reference.size * r) / target.size) * k;
   const s = targetScale(ratio),
     correct = targetScale(ratio + (actual - ratio) * progress);
@@ -100,9 +94,14 @@ export default function Board({
     x: clamp(offset.x, 20 - targetX(s), W - 20 - targetX(s) - target.width * s),
     y: clamp(offset.y, 30 - (baseY - target.height * s), H - 30 - baseY),
   };
-  const px = targetX(s) + safeOffset.x * (1 - progress),
+  const placedX = (scale: number) =>
+    (targetX(scale) + safeOffset.x) * (1 - progress) +
+    result.targetX * progress;
+  const px = placedX(s) + (result.guessX - result.targetX) * progress,
     py = baseY - target.height * s + safeOffset.y * (1 - progress);
-  const referenceX = W * 0.26 - (reference.width * k) / 2;
+  const referenceCenter =
+    W * 0.26 + (result.referenceCenter - W * 0.26) * progress;
+  const referenceX = referenceCenter - (reference.width * k) / 2;
   const guess = reference.size * ratio;
   const points = score(guess, target.size);
   const point = (e: PointerEvent<SVGElement>) => {
@@ -145,11 +144,11 @@ export default function Board({
   const handleX = px + target.width * s,
     handleY = py;
   const correctSilhouette = revealed && (
-    <g className="correct-silhouette" color="#a7b5c5" opacity={progress * 0.65}>
+    <g className="correct-silhouette" color="#c4d0dc" opacity={progress * 0.85}>
       <Silhouette
         object={target}
         scale={correct}
-        x={targetX(correct) + safeOffset.x * (1 - progress)}
+        x={placedX(correct)}
         y={baseY - target.height * correct + safeOffset.y * (1 - progress)}
       />
     </g>
@@ -260,31 +259,80 @@ export default function Board({
           fill="none"
         />
         <text
-          x={W * 0.26}
+          x={referenceCenter}
           y={baseY + 24}
           textAnchor="middle"
           className="object-name"
           fill="#61d7c1"
         >
           {labelLines(reference.name).map((line, i) => (
-            <tspan key={i} x={W * 0.26} dy={i ? 16 : 0}>
+            <tspan key={i} x={referenceCenter} dy={i ? 16 : 0}>
               {line}
             </tspan>
           ))}
         </text>
-        <text
-          x={px + (target.width * s) / 2}
-          y={py + target.height * s + 24}
-          textAnchor="middle"
-          className="object-name"
-          fill="#bea5f7"
-        >
-          {labelLines(revealed ? "Твой размер" : target.name).map((line, i) => (
-            <tspan key={i} x={px + (target.width * s) / 2} dy={i ? 16 : 0}>
-              {line}
-            </tspan>
-          ))}
-        </text>
+        {revealed ? (
+          <g
+            className="comparison-guides"
+            opacity={progress}
+            pointerEvents="none"
+          >
+            {/* Each dimension stays outside the overlap, so thin silhouettes remain legible. */}
+            <path
+              data-guide="answer"
+              d={
+                horizontal
+                  ? `M${placedX(correct)} ${baseY - target.height * correct - 6}v-6h${target.width * correct}v6`
+                  : `M${placedX(correct) - 6} ${baseY - target.height * correct}h-6V${baseY}h6`
+              }
+              fill="none"
+              stroke="#c4d0dc"
+              strokeWidth="1.5"
+              strokeDasharray="3 3"
+            />
+            <path
+              data-guide="guess"
+              d={
+                horizontal
+                  ? `M${px} ${baseY + 4}v6h${target.width * s}v-6`
+                  : `M${Math.max(px + s * target.width, placedX(correct) + correct * target.width) + 6} ${py}h6V${py + target.height * s}h-6`
+              }
+              fill="none"
+              stroke="#bea5f7"
+              strokeWidth="1.5"
+            />
+            <text
+              x={result.targetX}
+              y={baseY + 24}
+              className="comparison-label"
+              fill="#bea5f7"
+            >
+              Твой размер · {meters(guess)}
+            </text>
+            <text
+              x={result.targetX}
+              y={baseY + 46}
+              className="comparison-label"
+              fill="#c4d0dc"
+            >
+              Правильный · {meters(target.size)}
+            </text>
+          </g>
+        ) : (
+          <text
+            x={px + (target.width * s) / 2}
+            y={py + target.height * s + 24}
+            textAnchor="middle"
+            className="object-name"
+            fill="#bea5f7"
+          >
+            {labelLines(target.name).map((line, i) => (
+              <tspan key={i} x={px + (target.width * s) / 2} dy={i ? 16 : 0}>
+                {line}
+              </tspan>
+            ))}
+          </text>
+        )}
         {revealed && (
           <g
             className="board-result"

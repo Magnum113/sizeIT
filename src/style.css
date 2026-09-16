@@ -990,7 +990,7 @@ dialog .primary {
   background: #bea5f7;
 }
 .actual-dot {
-  background: #a7b5c5;
+  background: #c4d0dc;
 }
 .sr-only {
   position: absolute;
@@ -1019,4 +1019,10 @@ dialog .primary {
     justify-content: center;
     font-size: 11px;
   }
+}
+
+.comparison-label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
